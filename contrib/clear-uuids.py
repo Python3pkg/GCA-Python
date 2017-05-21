@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function
+
 
 import argparse
 import codecs
@@ -12,7 +12,7 @@ def clean_uuids(d):
         return None
     if 'uuid' in d:
         del d['uuid']
-    for k, v in d.iteritems():
+    for k, v in d.items():
         if isinstance(d[k], dict):
             clean_uuids(d[k])
         elif isinstance(d[k], list):

@@ -70,4 +70,4 @@ def make_selector(string):
 
 def make_fields(field_str):
     fields = field_str.split('.')
-    return map(make_selector, fields)
+    return list(map(make_selector, fields))

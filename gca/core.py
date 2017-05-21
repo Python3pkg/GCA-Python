@@ -1,17 +1,18 @@
-from __future__ import print_function
+
 
 from .util import getattr_maybelist
 
 import json
-import urllib2
-import urllib
-from cookielib import CookieJar
-from urlparse import urlparse
+import urllib.request, urllib.error, urllib.parse
+import urllib.request, urllib.parse, urllib.error
+from http.cookiejar import CookieJar
+from urllib.parse import urlparse
 from collections import defaultdict
 import os
 import sys
 from .util import make_fields
 import uuid
+from functools import reduce
 
 
 class TransportError(Exception):
@@ -106,7 +107,7 @@ class Conference(Entity):
 
     def group_for_brief(self, brief):
         groups = [Group(gd) for gd in self._data['groups']]
-        selected = filter(lambda x: x.brief == brief, groups)
+        selected = [x for x in groups if x.brief == brief]
         if len(selected) != 1:
             raise ValueError('Error finding group with brief [%s: %d]' % (brief, len(selected)))
         return selected[0]
@@ -170,8 +171,8 @@ class Affiliation(Entity):
         country = self._data['country']
 
         components = [department, section, address, country]
-        active = filter(bool, components)
-        return u', '.join(active)
+        active = list(filter(bool, components))
+        return ', '.join(active)
 
 
 class Author(Entity):
@@ -223,8 +224,8 @@ class Author(Entity):
                 middle = ' ' + middle
             return "%s, %s%s" % (d['lastName'], d['firstName'], middle)
 
-        middle = d['middleName'] + u' ' if d['middleName'] else u""
-        return d['firstName'] + u' ' + middle + d['lastName']
+        middle = d['middleName'] + ' ' if d['middleName'] else ""
+        return d['firstName'] + ' ' + middle + d['lastName']
 
     def format_affiliation(self):
         af = self._data['affiliations']
@@ -479,7 +480,7 @@ class Abstract(Entity):
 
 
     def select_field(self, field, fold=False):
-        if type(field) == str or type(field) == unicode:
+        if type(field) == str or type(field) == str:
             field = make_fields(field)
         val = reduce(getattr_maybelist, field, self)
 
@@ -551,7 +552,7 @@ def authenticated(method):
 class Session(object):
     def __init__(self, url, authenticator):
         jar = CookieJar()
-        opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(jar))
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
         self.__url = url
         self.__cookie_jar = jar
@@ -572,7 +573,7 @@ class Session(object):
         purl = urlparse(self.url)
         hostname = purl.hostname
         user, password = self.__auth.get_credentials(hostname)
-        params = urllib.urlencode({'identifier': user, 'password': password})
+        params = urllib.parse.urlencode({'identifier': user, 'password': password})
         url_opener = self.__url_opener
         resp = url_opener.open(self.url + "/authenticate/credentials", params)
         code = resp.getcode()
@@ -631,7 +632,7 @@ class Session(object):
 
         url = "%s/api/conferences/%s/abstracts" % (self.url, conference)
         data = json.dumps(abstract)
-        req = urllib2.Request(url, data, {'Content-Type': 'application/json'})
+        req = urllib.request.Request(url, data, {'Content-Type': 'application/json'})
         js = self._fetch(req)
         return js if raw else Abstract(js)
 
@@ -645,7 +646,7 @@ class Session(object):
         url = "%s/api/abstracts/%s" % (self.url, uuid)
         patches = [{"op": "add", "path": "/%s" % f, "value": abstract[f]} for f in fields]
         data = json.dumps(patches)
-        req = urllib2.Request(url, data, {'Content-Type': 'application/json'})
+        req = urllib.request.Request(url, data, {'Content-Type': 'application/json'})
         req.get_method = lambda: 'PATCH'  # monkey see, monkey do
         js = self._fetch(req)
         return js if raw else Abstract(js)
@@ -667,7 +668,7 @@ class Session(object):
         url = self._build_url(uuid_or_url, 'state', otype='abstracts')
         state_change = {'state': state, 'note': note}
         data = json.dumps(state_change)
-        req = urllib2.Request(url, data, {'Content-Type': 'application/json'})
+        req = urllib.request.Request(url, data, {'Content-Type': 'application/json'})
         req.get_method = lambda: 'PUT'  # monkey see, monkey do
         data = self._fetch(req)
         return data if raw else [LogEntry(e) for e in data]
@@ -683,12 +684,12 @@ class Session(object):
         try:
             owners = self.get_owners(abstract['owners'], raw=True)
             abstract.update({'owners': owners})
-        except urllib2.HTTPError:
+        except urllib.error.HTTPError:
             sys.stderr.write("Could not fetch owners for %s [%s]\n" % (abstract["uuid"], abstract['owners']))
         try:
             log = self.get_state_log(abstract['stateLog'], raw=True)
             abstract.update({'stateLog': log})
-        except urllib2.HTTPError:
+        except urllib.error.HTTPError:
             sys.stderr.write("Could not fetch state log for %s\n" % abstract["uuid"])
 
         return abstract
